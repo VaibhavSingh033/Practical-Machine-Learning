@@ -1,0 +1,92 @@
+---
+title: "Practical Machine Learning Final Report: Exercise Prediction"
+---
+I have downloaded the file, reading it then creating partition.
+
+##Reading and creating partition in the File
+```{r, warning=FALSE}
+library(caret)
+library(randomForest)
+library(rpart)
+train_in <- read.csv("pml-training.csv")
+validation <- read.csv('pml-testing.csv', header=T)
+set.seed(127)
+training_sample <- createDataPartition(y=train_in$classe, p=0.7, list=FALSE)
+training <- train_in[training_sample, ]
+testing <- train_in[-training_sample, ]
+dim(training)
+dim(testing)
+```
+
+Removing near 0 variables and then removing variable
+
+
+```{r, warning=FALSE}
+NZV <- nearZeroVar(training)
+training <- training[, -NZV]
+testing  <- testing[, -NZV]
+dim(training)
+dim(testing)
+#Now removing variables that are mostly NA
+AllNA    <- sapply(training, function(x) mean(is.na(x))) > 0.95
+training <- training[, AllNA==FALSE]
+testing  <- testing[, AllNA==FALSE]
+dim(training)
+dim(testing)
+```
+
+##Model building
+The three model types I'm going to test are:
+
+1.Random forest decision trees (rf)
+2.Decision trees with CART (rpart)
+3.Method: Generalized Boosted Model
+
+
+#1. Random forest decision trees (rf)
+```{r, warning=FALSE}
+ controlRF <- trainControl(method="cv", number=3, verboseIter=FALSE)
+    modFitRandForest <- train(classe ~ ., data=training, method="rf",trControl=controlRF)
+    predictRandForest <- predict(modFitRandForest, newdata=testing)
+    confMatRandForest <- confusionMatrix(predictRandForest, testing$classe)
+    confMatRandForest
+```
+
+#2. Decision trees
+
+```{r, warning=FALSE}
+modFitDecTree <- rpart(classe ~ ., data=training, method="class")
+predictDecTree <- predict(modFitDecTree, newdata=testing, type="class")
+confMatDecTree <- confusionMatrix(predictDecTree, testing$classe)
+confMatDecTree
+```
+
+#3. Method: Generalized Boosted Model
+```{r, warning=FALSE}
+controlGBM <- trainControl(method = "repeatedcv", number = 5, repeats = 1)
+modFitGBM  <- train(classe ~ ., data=training, method = "gbm",trControl = controlGBM, verbose = FALSE)
+modFitGBM$finalModel
+predictGBM <- predict(modFitGBM, newdata=testing)
+confMatGBM <- confusionMatrix(predictGBM, testing$classe)
+confMatGBM
+
+```
+
+
+##Model Assessment (Out of sample error)
+
+The accuracy of the 3 regression modeling methods above are:
+
+Random Forest : 1
+Decision Tree : 0.9995
+GBM : 0.9995
+In that case, the Random Forest model will be applied to predict the 20 quiz results (testing dataset) as shown below.
+
+```{r}
+predictTEST <- predict(modFitRandForest, newdata=testing)
+predictTEST
+
+```
+
+
+
